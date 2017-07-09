@@ -13,7 +13,7 @@ LIBRARY_PATHS = -LC:\Users\ajax\Desktop\otherstuff\SDL2-2.0.5\i686-w64-mingw32\l
 #COMPILER_FLAGS specifies the additional compilation options we're using
 # -w suppresses all warnings
 # -Wl,-subsystem,windows gets rid of the console window
-COMPILER_FLAGS = -w
+COMPILER_FLAGS = -w -std=c++11
 
 #LINKER_FLAGS specifies the libraries we're linking against
 LINKER_FLAGS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_image

@@ -34,20 +34,28 @@ int main(int argc, char* args[])
 	}
 
 
+
 	SDL_Init(SDL_INIT_VIDEO);
 	w = SDL_CreateWindow("haaaa!!!!!", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
 	r = SDL_CreateRenderer(w, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
-	SDL_SetRenderDrawColor(r, 250, 237, 80, 0xFF);
+	SDL_SetRenderDrawColor(r, 0xFF, 0xFF, 0xFF, 0xFF);
 	IMG_Init(IMG_INIT_PNG);
 
-	Interaction_system<Something*> occ(50, WIDTH, HEIGHT);
+	SDL_Surface* img = IMG_Load("geography.png");
+	SDL_Texture* background = SDL_CreateTextureFromSurface(r, img);
+	SDL_FreeSurface(img);
 
-	Something ant1({30, 30}, {50, 400}, {50, 50}, 0, "ant.txt", r, &occ);
+	Interaction_system<Something*> occ(50, "geography.bmp");//, WIDTH, HEIGHT);
+
+
+	Something tree1({25, 25}, {500, 370}, {100, 200}, 0, "tree.txt", r, &occ);
+
+	Something ant1({30, 30}, {150, 400}, {50, 50}, 0, "ant.txt", r, &occ);
 
 	std::vector<ant*> ants;
 
 
-	int spawn = 115;
+	int spawn = 215;
 
 	char b[sizeof(ant)];
 	Something* prev = new ant({spawn - 55, 100}, 0, r, &occ, (Something*)b);
@@ -293,11 +301,15 @@ int main(int argc, char* args[])
 		}
 
 
+		SDL_RenderCopy(r, background, NULL, NULL);
+
 		for(int i = 0; i < num_ants; ++i)
 		{
 			ants[i]->render_anim();
 		}
 		ant1.render_anim();
+
+		tree1.render_anim();
 
 		SDL_RenderPresent(r);
 

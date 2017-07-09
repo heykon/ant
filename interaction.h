@@ -1,7 +1,13 @@
 #ifndef INTERACTION_H
 #define INTERACTION_H
 
+#include <cstdint>
+#include <fstream>
+#include <string>
+#include <stdio.h>
+
 #define interact_id int
+
 
 template <class Entry_t> class Interaction_system
 {
@@ -9,11 +15,12 @@ private:
 	Entry_t* id_table;
 	int num_id;
 
-	int* occupancy_map;
-	const int WIDTH, HEIGHT;
+	uint8_t* occupancy_map;
+	int width, height;
 
 public:
 	Interaction_system(int size_i, int w, int h);
+	Interaction_system(int size_i, std::string bitmap_file); // flip before read
 	~Interaction_system();
 
 	Entry_t access_obj_at_pos(int x, int y);
@@ -23,18 +30,44 @@ public:
 	int get_id(int x, int y);
 	void modify(int x, int y, int v);
 
-	const int get_width(){return WIDTH;}
-	const int get_height(){return HEIGHT;}
+	int get_width(){return width;}
+	int get_height(){return height;}
 };
 
 template <class Entry_t>
 Interaction_system<Entry_t>::Interaction_system(int size_i, int w, int h)
-	: WIDTH(w)
-	, HEIGHT(h)
+	: width(w)
+	, height(h)
 	, num_id(size_i)
 {
 	id_table = new Entry_t[size_i];
-	occupancy_map = new int[w*h]();
+	occupancy_map = new uint8_t[w*h]();
+
+	
+}
+
+inline uint32_t reverse(char* b, int pos)
+{
+	return b[pos] | (b[pos+1] << 8) | (b[pos+2] << 16) | (b[pos+3] << 24);
+}
+
+template <class Entry_t>
+Interaction_system<Entry_t>::Interaction_system(int size_i, std::string bitmap_file)
+{
+	id_table = new Entry_t[size_i];
+
+	std::ifstream bitmap(bitmap_file);
+	char buffer[27];
+	bitmap.read(buffer, 26);
+
+	uint32_t offset = reverse(buffer, 10);
+	width = reverse(buffer, 18);
+	height = reverse(buffer, 22);
+
+	occupancy_map = new uint8_t[width*height];
+
+	bitmap.seekg(offset);
+	bitmap.read((char*)occupancy_map, width*height);
 
 	
 }
@@ -54,7 +87,7 @@ Interaction_system<Entry_t>::~Interaction_system()
 template <class Entry_t>
 Entry_t Interaction_system<Entry_t>::access_obj_at_pos(int x, int y)
 {
-	int id = occupancy_map[x + y*WIDTH];
+	int id = occupancy_map[x + y*width];
 	return id_table[id];
 }
 
@@ -76,14 +109,14 @@ void Interaction_system<Entry_t>::insert_obj(int p, Entry_t e)
 template <class Entry_t>
 int Interaction_system<Entry_t>::get_id(int x, int y)
 {
-	return occupancy_map[x + y*WIDTH];
+	return occupancy_map[x + y*width];
 }
 
 
 template <class Entry_t>
 void Interaction_system<Entry_t>::modify(int x, int y, int v)
 {
-	occupancy_map[x + y*WIDTH] = v;
+	occupancy_map[x + y*width] = v;
 }
 
 
