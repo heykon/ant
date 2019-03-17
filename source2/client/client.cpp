@@ -21,17 +21,26 @@
 
 
 
-#define RESEND_INTERVAL 6
+#define RESEND_INTERVAL 600
 
 
 struct ant_info
 {
 	Something* s;
 	dir move_dir;
-	bool moving, new_dir, valid;
+	bool moving, attacking, new_dir, valid;
+	int atpr;
 };
 
-
+enum request
+{
+	POS_INFO = 1, 
+	ACTION, 
+	QUIT, 
+	JOIN, 
+	ACTION_INFO,
+	ACTION_UPDATE
+};
 
 int main(int argc, char* args[])
 {
@@ -101,9 +110,9 @@ int main(int argc, char* args[])
 	FD_SET(s, &f);
 
 
-	b[0] = 4;
+	b[0] = JOIN;
 
-	while (rb[0] != 4)
+	while (rb[0] != JOIN)
 	{
 		do
 		{
@@ -135,9 +144,9 @@ int main(int argc, char* args[])
 	int last_id = rb[2];
 	int id = rb[1];
 
-	b[0] = 1;
+	b[0] = POS_INFO;
 
-	while (rb[0] != 1)
+	while (rb[0] != POS_INFO)
 	{
 		do
 		{
@@ -149,18 +158,21 @@ int main(int argc, char* args[])
 	printf("5\n");
 
 	std::vector<struct ant_info> ants;
-	ants.push_back({NULL, NONE, false, false, false});
+	ants.push_back({NULL, NONE, false, false, false, false, 0});
 
 	for (int i = 1; i <= last_id; ++i)
 	{
 		int x = char_b_to_int(rb, i*2);
 		int y = char_b_to_int(rb, i*2 + 1);
 
-		struct ant_info new_ant = {NULL
-			, NONE
-			, false
-			, false
-			, false
+		struct ant_info new_ant = {
+			NULL,
+			NONE,
+			false,
+			false,
+			false,
+			false,
+			0
 		};
 
 		if (x != -1)
@@ -172,11 +184,11 @@ int main(int argc, char* args[])
 		ants.push_back(new_ant);
 	}
 
-	b[0] = 5;
+	b[0] = ACTION_INFO;
 
 	printf("6\n");
 
-	while (rb[0] != 5)
+	while (rb[0] != ACTION_INFO)
 	{
 		do
 		{
@@ -204,7 +216,9 @@ int main(int argc, char* args[])
 	int speed = 5;
 	bool ttm = false;
 
-	unsigned char count = 1, resend_count = 0;
+	unsigned char count = 1, resend_count = 0, msg_id = 0;
+	char prev_msg[B_SIZE];
+	memset(prev_msg, 0, B_SIZE);
 
 	u_long im = 1;
 	ioctlsocket(s, FIONBIO, &im);
@@ -222,7 +236,7 @@ int main(int argc, char* args[])
 
 			switch (rb[0])
 			{
-				case 1:
+				case POS_INFO:
 				for (int i = 1; i <= last_id; ++i)
 				{
 					int new_x = char_b_to_int(rb, i*2);
@@ -237,6 +251,8 @@ int main(int argc, char* args[])
 							ants[i].new_dir = false;
 							ants[i].moving = false;
 							ants[i].move_dir = UP;
+							ants[i].attacking = false;
+							ants[i].atpr = 0;
 
 						}
 						else
@@ -252,11 +268,13 @@ int main(int argc, char* args[])
 						ants[i].move_dir = NONE;
 						ants[i].moving = false;
 						ants[i].new_dir = false;
+						ants[i].attacking = false;
+						ants[i].atpr = 0;
 					}
 				}
 				break;
 
-				case 2:
+				case ACTION:
 
 				if ((unsigned char)rb[1] == count)
 				{
@@ -266,12 +284,12 @@ int main(int argc, char* args[])
 						ttm = true;
 					else if (rb[3] == 2)
 						ttm = false;
-					printf("ttm set to %d\n", ttm);
+					//printf("ttm set to %d\n", ttm);
 				}
 
 				break;
 
-				case 3:
+				case QUIT:
 				leave_id = rb[1];
 
 				delete ants[leave_id].s;
@@ -294,7 +312,7 @@ int main(int argc, char* args[])
 
 				break;
 
-				case 4:
+				case JOIN:
 				new_id = rb[1];
 
 				x = char_b_to_int(rb, 1);
@@ -306,11 +324,14 @@ int main(int argc, char* args[])
 					for (int i = last_id + 1; i <= new_id; ++i)
 					{
 
-						new_ant = {NULL
-							, NONE
-							, false
-							, false
-							, false
+						struct ant_info new_ant = {
+							NULL,
+							NONE,
+							false,
+							false,
+							false,
+							false,
+							0
 						};
 
 						ants.push_back(new_ant);
@@ -327,26 +348,35 @@ int main(int argc, char* args[])
 				ants[new_id].new_dir = false;
 				ants[new_id].valid = true;
 				ants[new_id].move_dir = UP;
+				ants[new_id].attacking = false;
+				ants[new_id].atpr = 0;
 
 				break;
 
-				case 5:
+				case ACTION_INFO:
 				break;
 
-				case 6:
+				case ACTION_UPDATE:
 				sender_id = rb[1];
 
-				if (ants[sender_id].move_dir != (dir)rb[2])
+				if (rb[4] == 1)
 				{
-					ants[sender_id].move_dir = (dir)rb[2];
-					ants[sender_id].new_dir = true;		
-				
+					if (!ants[sender_id].attacking)
+					{
+						ants[sender_id].new_dir = true;
+						ants[sender_id].attacking = true;
+						ants[sender_id].moving = false;
+					}
 				} else
 				{
-					ants[sender_id].new_dir = false;
-				}
+					if (ants[sender_id].move_dir != (dir)rb[2])
+					{
+						ants[sender_id].move_dir = (dir)rb[2];
+						ants[sender_id].new_dir = true;					
+					}
 
-				ants[sender_id].moving = (bool)rb[3];
+					ants[sender_id].moving = (bool)rb[3];
+				}
 
 			}
 		}
@@ -481,24 +511,49 @@ int main(int argc, char* args[])
 		{
 			b[3] = 2;
 		}
-
-
+/*
+		if (ia.type == SDL_KEYDOWN
+			&& ia.key.keysym.sym == SDLK_SPACE
+			&& !ants[id].attacking)
+		{
+			send = true;
+			b[4] = 1;
+		} else
+		{
+			b[4] = 0;
+		}
+*/
 		if (send)
 		{
-			b[0] = 2;
+			b[0] = ACTION;
 			b[1] = count;
-			//resend_count = ((resend_count + 1) == 6) ? 0 : (resend_count + 1);
 
-			if ((resend_count++ % RESEND_INTERVAL) == 0)
-				sendto(s, b, 4, 0, (sockaddr*)&host, sizeof(host));
-		} else if (resend_count != 0)
+			if (!memcmp(&prev_msg[2], &b[2], 3))
+			{
+				if ((++resend_count % RESEND_INTERVAL) == 0)
+				{
+					b[B_SIZE - 1] = msg_id++;
+					sendto(s, b, 5, 0, (sockaddr*)&host, sizeof(host));
+					printf("resent 2, dir %d, mov %d\n", b[2], b[3]);
+				} else
+				{
+					printf("wait, %d %d %d\n", b[2], b[3], b[4]);
+					printf("prev, %d %d %d\n", prev_msg[2], prev_msg[3], prev_msg[4]);
+				}
+			} else
+			{
+				b[B_SIZE - 1] = msg_id++;
+				sendto(s, b, 5, 0, (sockaddr*)&host, sizeof(host));
+				printf("sent 2, dir %d, mov %d\n", b[2], b[3]);
+				resend_count = 0;
+			}
+			memcpy(prev_msg, b, 5);
+		} else
 		{
 			resend_count = 0;
 		}
 
-
 		SDL_RenderClear(r);
-
 
 		if(!(++frame%FRAME_INTERVAL))
 		{
@@ -512,24 +567,68 @@ int main(int argc, char* args[])
 						switch (ants[i].move_dir)
 						{
 							case UP:
-							ants[i].s->change_anim(0);
+							if (ants[i].attacking)
+								ants[i].s->change_anim(4);
+
+							if (ants[i].moving)
+								ants[i].s->change_anim(0);
 							break;
 
 							case DOWN:
-							ants[i].s->change_anim(1);
+							if (ants[i].attacking)
+								ants[i].s->change_anim(5);
+
+							if (ants[i].moving)
+								ants[i].s->change_anim(1);
 							break;
 
 							case LEFT:
-							ants[i].s->change_anim(2);
+							if (ants[i].attacking)
+								ants[i].s->change_anim(6);
+
+							if (ants[i].moving)
+								ants[i].s->change_anim(2);
 							break;
 
 							case RIGHT:
-							ants[i].s->change_anim(3);
+							if (ants[i].attacking)
+								ants[i].s->change_anim(7);
+
+							if (ants[i].moving)
+								ants[i].s->change_anim(3);
 						}
 						ants[i].new_dir = false;
 					}
 
-					if (ants[i].moving)
+					if (ants[i].attacking)
+					{
+						if (ants[i].atpr < 4)
+						{
+							ants[i].atpr++;
+							ants[i].s->update_anim();
+						} else 
+						{
+							ants[i].atpr = 0;
+							ants[i].attacking = false;
+							switch (ants[i].move_dir)
+							{
+								case UP:
+								ants[i].s->change_anim(0);
+								break;
+
+								case DOWN:
+								ants[i].s->change_anim(1);
+								break;
+
+								case LEFT:
+								ants[i].s->change_anim(2);
+								break;
+
+								case RIGHT:
+								ants[i].s->change_anim(3);
+							}
+						}
+					} else if (ants[i].moving)
 					{
 						ants[i].s->update_anim();
 						ants[i].s->move(ants[i].move_dir, speed);				

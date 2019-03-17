@@ -1,0 +1,8 @@
+animation/testmap.png 5
+animation/testmap2.png 5
+animation/testmap3.png 5
+animation/testmap4.png 5
+animation/testmap5.png 5
+animation/testmap6.png 5
+animation/testmap7.png 5
+animation/testmap8.png 5

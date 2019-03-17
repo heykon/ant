@@ -25,12 +25,19 @@ struct player_info
 {
 	Something* s;
 	dir move_dir;
-	bool moving, ttm, new_dir;
+	bool moving, attacking, ttm, new_dir;
+	int atpr;
 	int id;
 	unsigned char count;
 };
 
-
+enum request {POS_INFO = 1, 
+	ACTION, 
+	QUIT, 
+	JOIN, 
+	ACTION_INFO,
+	ACTION_UPDATE
+};
 
 int main(int argc, char* args[])
 {
@@ -102,21 +109,21 @@ int main(int argc, char* args[])
 
 	std::map<u_long,struct player_info> players;
 	int last_id = 1;
-	std::deque<int> ids_not_in_use;
+	std::deque<int> unused_ids;
 
 
 
 	while (!game_over)
 	{
 
-		while ((recvfrom(s, b, 4, 0, (struct sockaddr*) &src_addr, &len)) != -1)
+		while ((recvfrom(s, b, 5, 0, (struct sockaddr*) &src_addr, &len)) != -1)
 		{
 			auto sender_it = players.find(src_addr.sin_addr.s_addr);
 
 			switch (b[0])
 			{
-				case 1:
-				for (auto it = ids_not_in_use.begin(); it != ids_not_in_use.end(); ++it)
+				case POS_INFO:
+				for (auto it = unused_ids.begin(); it != unused_ids.end(); ++it)
 					int_to_char_b(b, *it*2, -1);
 
 				for (auto it = players.begin(); it != players.end(); ++it)
@@ -136,11 +143,27 @@ int main(int argc, char* args[])
 
 				break;
 
-				case 2:
+				case ACTION:
 				printf("server; recv 2 from %d, count %d, local count%d\n", sender_it->second.id, (unsigned char)b[1], sender_it->second.count);
-				if ((unsigned char)b[1] == ++sender_it->second.count)
+				if ((unsigned char)b[1] == (unsigned char)(sender_it->second.count + 1))
 				{
-					if (b[3] == 1)
+					++sender_it->second.count;
+					sendto(s, b, 5, 0, (struct sockaddr*)&src_addr, sizeof(src_addr));
+
+					if (0)//b[4] == 1)
+					{
+						sender_it->second.attacking = true;
+						sender_it->second.moving = false;
+						sender_it->second.new_dir = true;
+
+						b[0] = ACTION_UPDATE;
+						b[1] = sender_it->second.id;
+						for (auto it = players.begin(); it != players.end(); ++it)
+						{
+							client.sin_addr.s_addr = it->first;
+							sendto(s, b, 5, 0, (struct sockaddr*)&client, sizeof(client));
+						}
+					} else if (b[3] == 1)
 					{
 						sender_it->second.new_dir = sender_it->second.move_dir != (dir)b[2];
 						sender_it->second.move_dir = (dir)b[2];
@@ -150,17 +173,16 @@ int main(int argc, char* args[])
 					{
 						sender_it->second.ttm = false;
 					}
-					printf("ttm set to %d\n", sender_it->second.ttm);					
-					sendto(s, b, 4, 0, (struct sockaddr*)&src_addr, sizeof(src_addr));
+					printf("ttm set to %d\n", sender_it->second.ttm);
 					
 				} else if ((unsigned char)b[1] == sender_it->second.count)
 				{
-					sendto(s, b, 4, 0, (struct sockaddr*)&src_addr, sizeof(src_addr));
+					sendto(s, b, 5, 0, (struct sockaddr*)&src_addr, sizeof(src_addr));
 				}
 
 				break;
 
-				case 3:
+				case QUIT:
 				if (sender_it == players.end())
 				{
 					sendto(s, b, 2, 0, (struct sockaddr*)&src_addr, sizeof(src_addr));
@@ -179,12 +201,12 @@ int main(int argc, char* args[])
 					if (sender_it->second.id == last_id)
 						last_id--;
 					else
-						ids_not_in_use.push_back(sender_it->second.id);
+						unused_ids.push_back(sender_it->second.id);
 					players.erase(sender_it);
 				}
 				break;
 
-				case 4:
+				case JOIN:
 				if (sender_it == players.end())
 				{
 					struct player_info new_player;
@@ -193,20 +215,22 @@ int main(int argc, char* args[])
 					int y = 300;
 
 
-					if (ids_not_in_use.empty())
+					if (unused_ids.empty())
 					{
 						new_player.id = ++last_id;
 					} else
 					{
-						new_player.id = ids_not_in_use.front();
-						ids_not_in_use.pop_front();
+						new_player.id = unused_ids.front();
+						unused_ids.pop_front();
 					}
 
 					new_player.s = new Something({30, 30}, {x, y}, {50, 50}, 0, "ant.txt", r, &occ);
 					new_player.moving = false;
 					new_player.ttm = false;
 					new_player.new_dir = false;
+					new_player.attacking = false;
 					new_player.move_dir = UP;
+					new_player.atpr = 0;
 					new_player.count = 0;
 
 					players[src_addr.sin_addr.s_addr] = new_player;
@@ -236,7 +260,7 @@ int main(int argc, char* args[])
 				}
 				break;
 
-				case 5:
+				case ACTION_INFO:
 				for (auto it = players.begin(); it != players.end(); ++it)
 				{
 
@@ -318,15 +342,16 @@ int main(int argc, char* args[])
 
 				if (change || it->second.new_dir)
 				{
-					b[0] = 6;
+					b[0] = ACTION_UPDATE;
 					b[1] = it->second.id;
 					b[2] = it->second.move_dir;
 					b[3] = it->second.moving;
+					b[4] = it->second.attacking;
 					for (auto it2 = players.begin(); it2 != players.end(); ++it2)
 					{
 						printf("server; sent 6 to %d, id %d, move_dir %d, moving %d\n", it2->second.id, it->second.id, it->second.move_dir, it->second.moving);
 						client.sin_addr.s_addr = it2->first;
-						sendto(s, b, 4, 0, (struct sockaddr*)&client, sizeof(client));
+						sendto(s, b, 5, 0, (struct sockaddr*)&client, sizeof(client));
 					}
 				}
 				if (it->second.new_dir)
@@ -335,24 +360,68 @@ int main(int argc, char* args[])
 					switch (it->second.move_dir)
 					{
 						case UP:
-						it->second.s->change_anim(0);
+						if (it->second.attacking)
+							it->second.s->change_anim(4);
+
+						if (it->second.moving)
+							it->second.s->change_anim(0);
 						break;
 
 						case DOWN:
-						it->second.s->change_anim(1);
+						if (it->second.attacking)
+							it->second.s->change_anim(5);
+
+						if (it->second.moving)
+							it->second.s->change_anim(1);
 						break;
 
 						case LEFT:
-						it->second.s->change_anim(2);
+						if (it->second.attacking)
+							it->second.s->change_anim(6);
+
+						if (it->second.moving)
+							it->second.s->change_anim(2);
 						break;
 
 						case RIGHT:
-						it->second.s->change_anim(3);
+						if (it->second.attacking)
+							it->second.s->change_anim(7);
+
+						if (it->second.moving)
+							it->second.s->change_anim(3);
 					}
 					it->second.new_dir = false;
 				}
 
-				if (it->second.moving)
+				if (it->second.attacking)
+				{
+					if (it->second.atpr < 4)
+					{
+						it->second.atpr++;
+						it->second.s->update_anim();
+					} else 
+					{
+						it->second.atpr = 0;
+						it->second.attacking = false;
+						switch (it->second.move_dir)
+						{
+							case UP:
+							it->second.s->change_anim(0);
+							break;
+
+							case DOWN:
+							it->second.s->change_anim(1);
+							break;
+
+							case LEFT:
+							it->second.s->change_anim(2);
+							break;
+
+							case RIGHT:
+							it->second.s->change_anim(3);
+						}
+					}
+				} else if (it->second.moving)
 				{
 					it->second.s->update_anim();
 					it->second.s->move(it->second.move_dir, speed);				
@@ -420,14 +489,15 @@ int main(int argc, char* args[])
 
 			if (change)
 			{
-				b[0] = 6;
+				b[0] = ACTION_UPDATE;
 				b[1] = 1;
 				b[2] = move_dir;
 				b[3] = moving;
+				b[4] = 0;
 				for (auto it = players.begin(); it != players.end(); ++it)
 				{
 					client.sin_addr.s_addr = it->first;
-					sendto(s, b, 4, 0, (struct sockaddr*)&client, sizeof(client));
+					sendto(s, b, 5, 0, (struct sockaddr*)&client, sizeof(client));
 				}
 			}
 
