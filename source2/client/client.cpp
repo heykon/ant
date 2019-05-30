@@ -280,6 +280,7 @@ int main(int argc, char* args[])
 				{
 					//resend_count = 0;
 					count++;
+					printf("count++\n");
 					if (rb[3] == 1)
 						ttm = true;
 					else if (rb[3] == 2)
@@ -532,11 +533,17 @@ int main(int argc, char* args[])
 				{
 					b[B_SIZE - 1] = msg_id++;
 					sendto(s, b, 5, 0, (sockaddr*)&host, sizeof(host));
+					printf("resent 2, dir %d, mov %d\n", b[2], b[3]);
+				} else
+				{
+					printf("wait, %d %d %d\n", b[2], b[3], b[4]);
+					printf("prev, %d %d %d\n", prev_msg[2], prev_msg[3], prev_msg[4]);
 				}
 			} else
 			{
 				b[B_SIZE - 1] = msg_id++;
 				sendto(s, b, 5, 0, (sockaddr*)&host, sizeof(host));
+				printf("sent 2, dir %d, mov %d\n", b[2], b[3]);
 				resend_count = 0;
 			}
 			memcpy(prev_msg, b, 5);
