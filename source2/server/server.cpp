@@ -144,13 +144,12 @@ int main(int argc, char* args[])
 				break;
 
 				case ACTION:
-				printf("server; recv 2 from %d, count %d, local count%d\n", sender_it->second.id, (unsigned char)b[1], sender_it->second.count);
 				if ((unsigned char)b[1] == (unsigned char)(sender_it->second.count + 1))
 				{
 					++sender_it->second.count;
 					sendto(s, b, 5, 0, (struct sockaddr*)&src_addr, sizeof(src_addr));
 
-					if (0)//b[4] == 1)
+					if (b[4] == 1)
 					{
 						sender_it->second.attacking = true;
 						sender_it->second.moving = false;
@@ -165,7 +164,12 @@ int main(int argc, char* args[])
 						}
 					} else if (b[3] == 1)
 					{
-						sender_it->second.new_dir = sender_it->second.move_dir != (dir)b[2];
+						if (sender_it->second.move_dir != (dir)b[2])
+						{
+							sender_it->second.new_dir = true;
+							static int c = 0;
+							printf("%d: new dir\n", c++);
+						}
 						sender_it->second.move_dir = (dir)b[2];
 						sender_it->second.ttm = true;
 					
@@ -173,7 +177,6 @@ int main(int argc, char* args[])
 					{
 						sender_it->second.ttm = false;
 					}
-					printf("ttm set to %d\n", sender_it->second.ttm);
 					
 				} else if ((unsigned char)b[1] == sender_it->second.count)
 				{
@@ -349,45 +352,39 @@ int main(int argc, char* args[])
 					b[4] = it->second.attacking;
 					for (auto it2 = players.begin(); it2 != players.end(); ++it2)
 					{
-						printf("server; sent 6 to %d, id %d, move_dir %d, moving %d\n", it2->second.id, it->second.id, it->second.move_dir, it->second.moving);
 						client.sin_addr.s_addr = it2->first;
 						sendto(s, b, 5, 0, (struct sockaddr*)&client, sizeof(client));
 					}
 				}
 				if (it->second.new_dir)
 				{
-					printf("new dir\n");
 					switch (it->second.move_dir)
 					{
 						case UP:
 						if (it->second.attacking)
 							it->second.s->change_anim(4);
-
-						if (it->second.moving)
+						else
 							it->second.s->change_anim(0);
 						break;
 
 						case DOWN:
 						if (it->second.attacking)
 							it->second.s->change_anim(5);
-
-						if (it->second.moving)
+						else
 							it->second.s->change_anim(1);
 						break;
 
 						case LEFT:
 						if (it->second.attacking)
 							it->second.s->change_anim(6);
-
-						if (it->second.moving)
+						else
 							it->second.s->change_anim(2);
 						break;
 
 						case RIGHT:
 						if (it->second.attacking)
 							it->second.s->change_anim(7);
-
-						if (it->second.moving)
+						else
 							it->second.s->change_anim(3);
 					}
 					it->second.new_dir = false;

@@ -21,7 +21,7 @@
 
 
 
-#define RESEND_INTERVAL 600
+#define RESEND_INTERVAL 10
 
 
 struct ant_info
@@ -511,7 +511,6 @@ int main(int argc, char* args[])
 		{
 			b[3] = 2;
 		}
-/*
 		if (ia.type == SDL_KEYDOWN
 			&& ia.key.keysym.sym == SDLK_SPACE
 			&& !ants[id].attacking)
@@ -522,7 +521,6 @@ int main(int argc, char* args[])
 		{
 			b[4] = 0;
 		}
-*/
 		if (send)
 		{
 			b[0] = ACTION;
@@ -534,17 +532,11 @@ int main(int argc, char* args[])
 				{
 					b[B_SIZE - 1] = msg_id++;
 					sendto(s, b, 5, 0, (sockaddr*)&host, sizeof(host));
-					printf("resent 2, dir %d, mov %d\n", b[2], b[3]);
-				} else
-				{
-					printf("wait, %d %d %d\n", b[2], b[3], b[4]);
-					printf("prev, %d %d %d\n", prev_msg[2], prev_msg[3], prev_msg[4]);
 				}
 			} else
 			{
 				b[B_SIZE - 1] = msg_id++;
 				sendto(s, b, 5, 0, (sockaddr*)&host, sizeof(host));
-				printf("sent 2, dir %d, mov %d\n", b[2], b[3]);
 				resend_count = 0;
 			}
 			memcpy(prev_msg, b, 5);
@@ -569,32 +561,28 @@ int main(int argc, char* args[])
 							case UP:
 							if (ants[i].attacking)
 								ants[i].s->change_anim(4);
-
-							if (ants[i].moving)
+							else
 								ants[i].s->change_anim(0);
 							break;
 
 							case DOWN:
 							if (ants[i].attacking)
 								ants[i].s->change_anim(5);
-
-							if (ants[i].moving)
+							else
 								ants[i].s->change_anim(1);
 							break;
 
 							case LEFT:
 							if (ants[i].attacking)
 								ants[i].s->change_anim(6);
-
-							if (ants[i].moving)
+							else
 								ants[i].s->change_anim(2);
 							break;
 
 							case RIGHT:
 							if (ants[i].attacking)
 								ants[i].s->change_anim(7);
-
-							if (ants[i].moving)
+							else
 								ants[i].s->change_anim(3);
 						}
 						ants[i].new_dir = false;

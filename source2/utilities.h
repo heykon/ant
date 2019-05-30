@@ -14,7 +14,7 @@
 #define HEIGHT 600
 #define WIDTH 800
 
-#define FRAME_INTERVAL 2
+#define FRAME_INTERVAL 10
 
 
 
