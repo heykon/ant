@@ -165,7 +165,9 @@ int main(int argc, char* args[])
 						}
 					} else if (b[3] == 1)
 					{
-						sender_it->second.new_dir = sender_it->second.move_dir != (dir)b[2];
+						if (sender_it->second.move_dir != (dir)b[2])
+							sender_it->second.new_dir = true;
+						
 						sender_it->second.move_dir = (dir)b[2];
 						sender_it->second.ttm = true;
 					
@@ -356,7 +358,7 @@ int main(int argc, char* args[])
 				}
 				if (it->second.new_dir)
 				{
-					printf("new dir\n");
+					printf("new dir %d\n", it->second.move_dir);
 					switch (it->second.move_dir)
 					{
 						case UP:
