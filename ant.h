@@ -3,25 +3,23 @@
 
 #include "something.h"
 
-
-class ant: public Something
+class Ant : public Something
 {
 private:
-	Something* target;
-
 	bool moving;
 	dir move_dir;
 	int speed;
+	bool attacking;
+	int atpr;
+	int health;
 public:
-	ant(Vec2d start_pos, int start_anim, SDL_Renderer* r, Interaction_system<Something*>* o, Something* t)
-		: Something({30, 30}, start_pos, {50, 50}, start_anim, "ant.txt", r, o)
-		, target(t)
-		, speed(5)
-		, moving(false)
-		, move_dir(NONE)
-	{set_prop(ANT);}
-
-	void prepare_for_next_frame();
+	Ant(Vec2d start_pos, int start_anim, SDL_Renderer* r, Interaction_system<Something*>* o)
+			: Something({30, 30}, start_pos, {50, 50}, start_anim, "ant.txt", r, o)
+			, speed(5)
+			, moving(false)
+			, move_dir(NONE)
+		{set_prop(ANT);}
+	void damaged();
 };
 
 #endif
